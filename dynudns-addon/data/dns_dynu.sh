@@ -133,7 +133,7 @@ _dynu_rest() {
   bashio::log.debug "$ep"
 
   _H1="API-Key: $Dynu_Token"
-  _H2="Content-Type: application/json"
+  _H2="accept: application/json"
 
    bashio::log.debug "$m" "$Dynu_EndPoint/$ep"
   if [ "$data" ]; then
