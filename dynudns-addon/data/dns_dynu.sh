@@ -3,8 +3,9 @@
 #Token
 #Dynu_Token=""
 #
+Dynu_Domain="api.dynu.com"
 #Endpoint
-Dynu_EndPoint="https://api.dynu.com/v2"
+Dynu_EndPoint="https://${Dynu_Domain}/v2"
 #
 #Author: Dynu Systems, Inc.
 #Report Bugs here: https://github.com/shar0119/acme.sh
@@ -135,19 +136,34 @@ _dynu_rest() {
   _H1="API-Key: $Dynu_Token"
   _H2="accept: application/json"
 
-   bashio::log.debug "$m" "$Dynu_EndPoint/$ep"
-  if [ "$data" ]; then
-    response=$(curl -s -H "$_H1" -H "$_H2" -X $m "$Dynu_EndPoint/$ep" -d $data)
-  else
-    response=$(curl -s -H "$_H1" -H "$_H2" -X $m "$Dynu_EndPoint/$ep")
-  fi
+  # Resolve the endpoint to all IPs using dig
+  IPs=$(dig +short "$Dynu_Domain" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
 
-  if [ "$?" != "0" ]; then
-    bashio::log.error " _dynu_rest error is:  $ep"
+  # If no IPs are resolved, log an error and return
+  if [ -z "$IPs" ]; then
+    bashio::log.error "_dynu_rest: Could not resolve any IPs for $Dynu_EndPoint"
     return 1
   fi
-  bashio::log.debug " _dynu_rest response is: $response"
-  return 0
+
+  # Loop through each IP and use --resolve
+  for ip in $(echo $IPs); do
+    bashio::log.debug "_dynu_rest: Trying IP $ip for $Dynu_EndPoint/$ep"
+    if [ "$data" ]; then
+      response=$(curl -s --resolve "$Dynu_Domain:443:$ip" -H "$_H1" -H "$_H2" -X $m "$Dynu_EndPoint/$ep" -d "$data")
+    else
+      response=$(curl -s --resolve "$Dynu_Domain:443:$ip" -H "$_H1" -H "$_H2" -X $m "$Dynu_EndPoint/$ep")
+    fi
+
+    # Check if the request was successful
+    if [ "$?" = "0" ]; then
+      bashio::log.debug "_dynu_rest response is: $response"
+      return 0
+    fi
+  done
+
+  # If all IPs failed
+  bashio::log.error "_dynu_rest: All IPs failed for $Dynu_EndPoint/$ep"
+  return 1
 }
 
 _contains() {
